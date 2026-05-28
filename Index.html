@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f1117">
+<title>Dashboard Penjualan</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #181c27;
+  --surface2: #1e2335;
+  --border: #2a3050;
+  --accent: #f0a500;
+  --accent2: #e05c2a;
+  --text: #e8eaf0;
+  --muted: #6b7394;
+  --success: #2ecc71;
+  --radius: 12px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+}
+
+/* ── HEADER ── */
+.header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+  padding-top: calc(14px + var(--safe-top));
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.header-left h1 {
+  font-family: 'DM Serif Display', serif;
+  font-size: 17px;
+  color: var(--accent);
+  line-height: 1.2;
+}
+.header-left p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+.file-badge {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--muted);
+  display: flex; align-items: center; gap: 5px;
+  white-space: nowrap; flex-shrink: 0;
+}
+.file-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink:0; }
+.file-badge.has-data .dot { background: var(--success); }
+.file-badge.has-data { color: var(--text); }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  margin: 16px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: var(--surface);
+  transition: all 0.2s;
+  -webkit-user-select: none; user-select: none;
+}
+.upload-zone:active { border-color: var(--accent); background: #1a1f30; transform: scale(0.99); }
+.upload-zone .icon { font-size: 36px; margin-bottom: 10px; }
+.upload-zone h2 { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
+.upload-zone p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.upload-zone em { color: var(--accent); font-style: normal; font-weight: 600; }
+#fileInput { display: none; }
+
+/* ── FILES LIST ── */
+.files-list { margin: 0 16px 8px; display: flex; flex-direction: column; gap: 6px; }
+.file-chip {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.file-chip .week-badge {
+  background: var(--accent); color: #000;
+  border-radius: 8px; padding: 1px 7px;
+  font-weight: 700; font-size: 11px; flex-shrink:0;
+}
+.file-chip .fname { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-chip .fmeta { color: var(--muted); font-size: 10px; flex-shrink:0; }
+.file-chip .remove {
+  cursor: pointer; color: var(--muted); font-size: 18px;
+  line-height:1; padding: 0 2px; flex-shrink:0;
+  min-width: 28px; min-height: 28px; display:flex; align-items:center; justify-content:center;
+}
+.file-chip .remove:active { color: #e74c3c; }
+
+/* ── CONTROLS ── */
+.controls {
+  margin: 0 16px 16px;
+  display: flex; flex-direction: column; gap: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.ctrl-group { display: flex; flex-direction: column; gap: 7px; }
+.ctrl-group label {
+  font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1.2px; color: var(--muted); font-weight: 600;
+}
+
+/* ── DATE PILLS ── */
+.date-pills {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.date-pill {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 13px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  -webkit-user-select: none; user-select: none;
+  min-height: 34px; display:flex; align-items:center;
+}
+.date-pill:active { transform: scale(0.95); }
+.date-pill.active {
+  background: var(--accent); border-color: var(--accent);
+  color: #000; font-weight: 700;
+}
+.date-pill.all-pill { border-style: dashed; }
+.date-pill.all-pill.active { background: var(--accent2); border-color: var(--accent2); color:#fff; }
+
+/* ── INPUTS ── */
+.search-wrap { position: relative; }
+.search-wrap input {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px 10px 36px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  width: 100%;
+  -webkit-appearance: none;
+}
+.search-wrap input::placeholder { color: var(--muted); }
+.search-wrap input:focus { border-color: var(--accent); }
+.search-wrap .sicon { position: absolute; left: 11px; top:50%; transform:translateY(-50%); color: var(--muted); font-size: 15px; pointer-events:none; }
+
+select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: 'DM Sans', sans-serif;
+  outline: none;
+  width: 100%;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7394' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 32px;
+}
+select option { background: var(--surface2); }
+
+/* ── STATS ── */
+.stats-row {
+  margin: 0 16px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stat-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+}
+.stat-card .label { font-size: 10px; text-transform:uppercase; letter-spacing:1px; color: var(--muted); margin-bottom: 5px; }
+.stat-card .value { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--accent); line-height:1; }
+.stat-card .value.small { font-size: 14px; padding-top: 4px; line-height: 1.3; word-break: break-word; }
+.stat-card .sub { font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* ── CHARTS ── */
+.charts-grid {
+  margin: 0 16px;
+  padding-bottom: calc(24px + var(--safe-bottom));
+  display: flex; flex-direction: column; gap: 16px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: fadeUp 0.35s ease both;
+}
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(14px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.chart-card:nth-child(2){animation-delay:.04s}
+.chart-card:nth-child(3){animation-delay:.08s}
+.chart-card:nth-child(4){animation-delay:.12s}
+.chart-card:nth-child(5){animation-delay:.16s}
+.chart-card:nth-child(6){animation-delay:.20s}
+.chart-card:nth-child(7){animation-delay:.24s}
+.chart-card:nth-child(8){animation-delay:.28s}
+
+.chart-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+}
+.chart-header h3 {
+  font-size: 12px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1.2px;
+}
+.chart-header .total-badge {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 3px 9px;
+  font-size: 11px; color: var(--muted); white-space: nowrap; flex-shrink:0;
+}
+.chart-header .total-badge span { color: var(--accent); font-weight: 700; }
+
+.chart-card[data-jenis="VIENNOSERRIE"] .chart-header { border-left: 3px solid #2E86C1; }
+.chart-card[data-jenis="PATTIESERRIE"] .chart-header { border-left: 3px solid #D35400; }
+.chart-card[data-jenis="PIXIE BITES"]  .chart-header { border-left: 3px solid #8E44AD; }
+.chart-card[data-jenis="SNACBOX"]      .chart-header { border-left: 3px solid #27AE60; }
+.chart-card[data-jenis="COOKIES"]      .chart-header { border-left: 3px solid #D4AC0D; }
+.chart-card[data-jenis="PAKET"]        .chart-header { border-left: 3px solid #2980B9; }
+.chart-card[data-jenis="KEMASAN"]      .chart-header { border-left: 3px solid #7F8C8D; }
+.chart-card[data-jenis="MINUMAN"]      .chart-header { border-left: 3px solid #1565C0; }
+.chart-card[data-jenis="OTHER"]        .chart-header { border-left: 3px solid #BDC3C7; }
+
+/* ── TABS ── */
+.tab-row { display:flex; border-bottom: 1px solid var(--border); }
+.tab-btn {
+  flex:1; padding: 10px 8px;
+  font-size: 12px; font-family: 'DM Sans', sans-serif; font-weight:500;
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+  transition: all 0.15s; min-height: 40px;
+}
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+.chart-body { padding: 14px 10px 10px; }
+.chart-body canvas { touch-action: pan-y; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.data-table { width:100%; border-collapse:collapse; font-size:12px; }
+.data-table th {
+  background: var(--surface2); color: var(--muted);
+  padding: 8px 10px; text-align:left;
+  font-weight:600; text-transform:uppercase;
+  font-size:9px; letter-spacing:0.8px;
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0;
+}
+.data-table td { padding: 8px 10px; border-bottom: 1px solid #1e2335; }
+.data-table tr:last-child td { border-bottom:none; }
+.data-table tr:active td { background: var(--surface2); }
+.data-table td.num { text-align:right; font-weight:700; color: var(--accent); font-variant-numeric: tabular-nums; }
+.data-table td.rank { color: var(--muted); width:28px; text-align:center; }
+.data-table td.pct { text-align:right; color: var(--muted); font-size:11px; }
+
+/* ── EMPTY ── */
+.empty-state { padding: 60px 32px; text-align:center; color: var(--muted); }
+.empty-state .big { font-size: 48px; margin-bottom: 14px; }
+.empty-state h2 { font-size: 17px; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 13px; line-height:1.6; }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width:4px; height:4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius:2px; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: calc(20px + var(--safe-bottom));
+  left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 24px; padding: 10px 20px;
+  font-size: 13px; color: var(--text);
+  z-index: 999; transition: transform 0.3s ease;
+  white-space: nowrap; box-shadow: 0 8px 32px #000a;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── DESKTOP OVERRIDE ── */
+@media (min-width: 640px) {
+  .header { padding: 18px 28px; }
+  .header-left h1 { font-size: 20px; }
+  .upload-zone { margin: 24px 28px; }
+  .files-list { margin: 0 28px 10px; flex-direction: row; flex-wrap: wrap; }
+  .file-chip { flex-direction: row; }
+  .controls { margin: 0 28px 20px; flex-direction: row; flex-wrap: wrap; align-items: flex-end; }
+  .ctrl-group { min-width: 180px; }
+  .stats-row { margin: 0 28px 20px; grid-template-columns: repeat(4,1fr); }
+  .charts-grid { margin: 0 28px; display: grid; grid-template-columns: repeat(auto-fill, minmax(480px,1fr)); }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <h1>Dashboard Penjualan</h1>
+    <p>Upload file Excel mingguan — data otomatis digabung</p>
+  </div>
+  <div class="file-badge" id="fileBadge">
+    <span class="dot"></span>
+    <span id="badgeText">Belum ada data</span>
+  </div>
+</div>
+
+<!-- UPLOAD -->
+<div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+  <div class="icon">📂</div>
+  <h2>Upload File Excel Mingguan</h2>
+  <p>Ketuk untuk pilih file <em>.xlsx</em><br>
+     Bisa upload beberapa file sekaligus<br>
+     Pastikan ada sheet <em>MEI 2026</em></p>
+  <input type="file" id="fileInput" accept=".xlsx,.xls" multiple>
+</div>
+
+<!-- FILES -->
+<div class="files-list" id="filesList"></div>
+
+<!-- CONTROLS -->
+<div class="controls" id="controls" style="display:none">
+  <div class="ctrl-group" style="width:100%">
+    <label>📅 Filter Tanggal</label>
+    <div class="date-pills" id="datePills"></div>
+  </div>
+  <div class="ctrl-group" style="flex:1">
+    <label>🔍 Cari Nama Produk</label>
+    <div class="search-wrap">
+      <span class="sicon">🔍</span>
+      <input type="text" id="searchItem" placeholder="Ketik nama produk..." autocomplete="off" autocorrect="off" spellcheck="false">
+    </div>
+  </div>
+  <div class="ctrl-group" style="flex:1">
+    <label>🗂️ Filter Jenis</label>
+    <select id="filterJenis">
+      <option value="ALL">Semua Jenis</option>
+    </select>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-row" id="statsRow" style="display:none"></div>
+
+<!-- MAIN -->
+<div id="mainContent">
+  <div class="empty-state">
+    <div class="big">📊</div>
+    <h2>Belum ada data</h2>
+    <p>Upload file Excel mingguan<br>untuk melihat grafik penjualan harian</p>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONFIG ──
+const JENIS_ORDER = ['VIENNOSERRIE','PATTIESERRIE','PIXIE BITES','SNACBOX','COOKIES','PAKET','KEMASAN','MINUMAN','OTHER'];
+const JENIS_COLORS = {
+  VIENNOSERRIE: ['#2E86C1','#1A5276','#5DADE2','#A9CCE3','#1ABC9C','#76D7C4','#2ECC71','#82E0AA','#A3E4D7','#F0B27A','#D35400','#E59866','#F5CBA7','#F7DC6F','#D4AC0D','#A04000'],
+  PATTIESERRIE: ['#D35400','#6E2F1A','#E59866','#A04000','#F0B27A','#922B21','#E74C3C','#F1948A','#C0392B','#F5CBA7','#F9E79F','#D4AC0D','#B7950B','#FAD7A0'],
+  'PIXIE BITES': ['#8E44AD','#4A235A','#BB8FCE','#D2B4DE'],
+  SNACBOX:  ['#27AE60','#1D4A1E','#52BE80','#A9DFBF','#1ABC9C','#48C9B0','#17A589','#0E6655','#76D7C4','#1E8449'],
+  COOKIES:  ['#D4AC0D','#7D6608','#F9E79F','#B7950B'],
+  PAKET:    ['#2980B9','#1A4A6E'],
+  KEMASAN:  ['#7F8C8D','#2C3E50','#85929E','#BDC3C7','#566573'],
+  MINUMAN:  ['#1565C0','#1A237E'],
+  OTHER:    ['#BDC3C7','#95A5A6'],
+};
+
+let allData = [];
+let loadedFiles = [];
+let chartInstances = {};
+
+// ── TOAST ──
+function showToast(msg, dur=2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+
+// ── UPLOAD ──
+const uploadZone = document.getElementById('uploadZone');
+const fileInput  = document.getElementById('fileInput');
+
+uploadZone.addEventListener('dragover',  e => { e.preventDefault(); uploadZone.style.borderColor='var(--accent)'; });
+uploadZone.addEventListener('dragleave', () => uploadZone.style.borderColor='');
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.style.borderColor='';
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => { handleFiles(e.target.files); e.target.value=''; });
+
+function handleFiles(files) {
+  if (!files.length) return;
+  Array.from(files).forEach(file => {
+    if (loadedFiles.find(f => f.name === file.name)) {
+      showToast(`⚠️ ${file.name} sudah diupload`); return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => parseExcel(e.target.result, file.name);
+    reader.onerror = () => showToast(`❌ Gagal baca ${file.name}`);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function parseExcel(buffer, fileName) {
+  try {
+    const wb = XLSX.read(buffer, { type:'array', cellDates:true });
+    const sheetName = wb.SheetNames.find(s =>
+      /MEI|MAY|APRIL|APR|JUNI|JUNE|JULI|JULY|AGUSTUS|AUG|2026|2025/i.test(s)
+    ) || wb.SheetNames[0];
+
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval:'' });
+    let added = 0;
+
+    rows.forEach(row => {
+      const tanggal = row['TANGGAL'];
+      const item    = (row['NAMA ITEM '] || row['NAMA ITEM'] || '').toString().trim();
+      const jenis   = (row['JENIS'] || '').toString().trim().toUpperCase();
+      const qty     = parseFloat(row['JUMLAH TERJUAL']) || 0;
+      if (!item || !jenis || qty <= 0) return;
+
+      let dateStr = '';
+      if (tanggal instanceof Date) {
+        dateStr = tanggal.toISOString().slice(0,10);
+      } else if (typeof tanggal === 'number') {
+        const d = XLSX.SSF.parse_date_code(tanggal);
+        dateStr = `${d.y}-${String(d.m).padStart(2,'0')}-${String(d.d).padStart(2,'0')}`;
+      } else {
+        dateStr = String(tanggal).slice(0,10);
+      }
+      allData.push({ tanggal: dateStr, item, jenis, qty, file: fileName });
+      added++;
+    });
+
+    loadedFiles.push({ name: fileName, count: added, sheet: sheetName });
+    renderFileChips();
+    rebuildUI();
+    showToast(`✅ ${fileName} — ${added} baris dimuat`);
+  } catch(err) {
+    showToast(`❌ Gagal parse ${fileName}`);
+    console.error(err);
+  }
+}
+
+function renderFileChips() {
+  const el = document.getElementById('filesList');
+  el.innerHTML = loadedFiles.map((f, i) => `
+    <div class="file-chip">
+      <span class="week-badge">W${i+1}</span>
+      <span class="fname">${f.name}</span>
+      <span class="fmeta">${f.count} baris</span>
+      <span class="remove" onclick="removeFile('${f.name.replace(/'/g,"\\'")}')">×</span>
+    </div>`).join('');
+
+  const badge = document.getElementById('fileBadge');
+  const badgeText = document.getElementById('badgeText');
+  if (loadedFiles.length > 0) {
+    badge.classList.add('has-data');
+    badgeText.textContent = `${loadedFiles.length} file · ${allData.length} baris`;
+  } else {
+    badge.classList.remove('has-data');
+    badgeText.textContent = 'Belum ada data';
+  }
+}
+
+function removeFile(name) {
+  allData = allData.filter(d => d.file !== name);
+  loadedFiles = loadedFiles.filter(f => f.name !== name);
+  renderFileChips();
+  rebuildUI();
+  showToast(`🗑️ ${name} dihapus`);
+}
+
+// ── REBUILD UI ──
+function rebuildUI() {
+  if (allData.length === 0) {
+    document.getElementById('controls').style.display = 'none';
+    document.getElementById('statsRow').style.display = 'none';
+    document.getElementById('mainContent').innerHTML = `
+      <div class="empty-state">
+        <div class="big">📊</div>
+        <h2>Belum ada data</h2>
+        <p>Upload file Excel mingguan<br>untuk melihat grafik penjualan harian</p>
+      </div>`;
+    return;
+  }
+  document.getElementById('controls').style.display = 'flex';
+  document.getElementById('statsRow').style.display = 'grid';
+  buildDatePills();
+  buildJenisFilter();
+  renderDashboard();
+}
+
+function buildDatePills() {
+  const dates = [...new Set(allData.map(d => d.tanggal))].sort();
+  const pills = document.getElementById('datePills');
+  pills.innerHTML = `<span class="date-pill all-pill active" data-date="ALL" onclick="selectDate('ALL')">Semua</span>` +
+    dates.map(d => {
+      const label = new Date(d+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'short'});
+      return `<span class="date-pill" data-date="${d}" onclick="selectDate('${d}')">${label}</span>`;
+    }).join('');
+}
+
+function selectDate(date) {
+  document.querySelectorAll('.date-pill').forEach(p =>
+    p.classList.toggle('active', p.dataset.date === date));
+  renderDashboard();
+  // Scroll to charts on mobile
+  if (window.innerWidth < 640) {
+    document.getElementById('mainContent').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+}
+
+function buildJenisFilter() {
+  const sel = document.getElementById('filterJenis');
+  const inData = [...new Set(allData.map(d => d.jenis))].sort();
+  sel.innerHTML = '<option value="ALL">Semua Jenis</option>' +
+    inData.map(j => `<option value="${j}">${j}</option>`).join('');
+}
+
+function getActiveDate() {
+  const a = document.querySelector('.date-pill.active');
+  return a ? a.dataset.date : 'ALL';
+}
+
+// ── RENDER DASHBOARD ──
+function renderDashboard() {
+  const activeDate  = getActiveDate();
+  const searchQuery = document.getElementById('searchItem').value.toLowerCase().trim();
+  const filterJenis = document.getElementById('filterJenis').value;
+
+  let filtered = allData.filter(d => {
+    if (activeDate !== 'ALL' && d.tanggal !== activeDate) return false;
+    if (filterJenis !== 'ALL' && d.jenis !== filterJenis) return false;
+    if (searchQuery && !d.item.toLowerCase().includes(searchQuery)) return false;
+    return true;
+  });
+
+  // ── STATS ──
+  const totalQty    = filtered.reduce((s,d) => s+d.qty, 0);
+  const uniqueItems = new Set(filtered.map(d => d.item)).size;
+  const uniqueDates = new Set(filtered.map(d => d.tanggal)).size;
+  const agg = {};
+  filtered.forEach(d => agg[d.item] = (agg[d.item]||0) + d.qty);
+  const topItem = Object.entries(agg).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card">
+      <div class="label">Total Terjual</div>
+      <div class="value">${totalQty.toLocaleString('id-ID')}</div>
+      <div class="sub">${activeDate!=='ALL'?'hari ini':'semua tanggal'}</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Produk Aktif</div>
+      <div class="value">${uniqueItems}</div>
+      <div class="sub">jenis produk</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Hari Data</div>
+      <div class="value">${uniqueDates}</div>
+      <div class="sub">${loadedFiles.length} file dimuat</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Terlaris</div>
+      <div class="value small">${topItem}</div>
+      <div class="sub">produk #1</div>
+    </div>`;
+
+  // ── CHARTS ──
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+
+  const jenisToShow = filterJenis !== 'ALL' ? [filterJenis] :
+    JENIS_ORDER.filter(j => filtered.some(d => d.jenis === j));
+
+  const container = document.getElementById('mainContent');
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="big">🔍</div><h2>Tidak ada data</h2><p>Coba ubah filter tanggal<br>atau nama produk</p></div>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="charts-grid" id="chartsGrid"></div>`;
+  const grid = document.getElementById('chartsGrid');
+
+  jenisToShow.forEach((jenis, ji) => {
+    const jenisData = filtered.filter(d => d.jenis === jenis);
+    if (!jenisData.length) return;
+
+    const agg = {};
+    jenisData.forEach(d => agg[d.item] = (agg[d.item]||0) + d.qty);
+    const sorted = Object.entries(agg).sort((a,b) => b[1]-a[1]);
+    const total  = sorted.reduce((s,[,v]) => s+v, 0);
+    const colors = JENIS_COLORS[jenis] || ['#aaaaaa'];
+
+    const cardId  = `card-${jenis.replace(/\s+/g,'_')}`;
+    const chartId = `chart-${jenis.replace(/\s+/g,'_')}`;
+
+    const card = document.createElement('div');
+    card.className = 'chart-card';
+    card.dataset.jenis = jenis;
+    card.id = cardId;
+    card.style.animationDelay = `${ji*0.05}s`;
+
+    const tableRows = sorted.map(([item,qty],i) => `
+      <tr>
+        <td class="rank">${i+1}</td>
+        <td>${item}</td>
+        <td class="num">${qty}</td>
+        <td class="pct">${((qty/total)*100).toFixed(1)}%</td>
+      </tr>`).join('');
+
+    card.innerHTML = `
+      <div class="chart-header">
+        <h3>${jenis}</h3>
+        <div class="total-badge">Total <span>${total}</span></div>
+      </div>
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('${cardId}','chart')">📊 Grafik</button>
+        <button class="tab-btn" onclick="switchTab('${cardId}','table')">📋 Tabel</button>
+      </div>
+      <div class="tab-pane active" id="${cardId}-chart">
+        <div class="chart-body"><canvas id="${chartId}"></canvas></div>
+      </div>
+      <div class="tab-pane" id="${cardId}-table">
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Nama Produk</th><th style="text-align:right">Qty</th><th style="text-align:right">%</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>`;
+    grid.appendChild(card);
+
+    // ── CHART TYPE ──
+    const isSingleDay = activeDate !== 'ALL';
+
+    if (isSingleDay) {
+      // Horizontal bar — 1 hari
+      const ctx = document.getElementById(chartId).getContext('2d');
+      const isMobile = window.innerWidth < 640;
+      chartInstances[chartId] = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: sorted.map(([k]) => k),
+          datasets: [{
+            label: 'Jumlah Terjual',
+            data: sorted.map(([,v]) => v),
+            backgroundColor: sorted.map((_,i) => colors[i%colors.length]+'cc'),
+            borderColor:     sorted.map((_,i) => colors[i%colors.length]),
+            borderWidth: 1,
+            borderRadius: 4,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: isMobile ? 1.2 : 1.6,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor:'#1e2335', titleColor:'#e8eaf0',
+              bodyColor:'#9aa0bc', borderColor:'#2a3050', borderWidth:1,
+              callbacks: { label: ctx => ` ${ctx.raw} pcs` }
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color:'#6b7394', font:{ size: isMobile?9:10 } },
+              grid: { color:'#1e2335' }, beginAtZero: true
+            },
+            y: {
+              ticks: {
+                color:'#e8eaf0',
+                font:{ size: isMobile?9:11 },
+                callback: v => v.length > (isMobile?18:25) ? v.slice(0, isMobile?18:25)+'…' : v
+              },
+              grid: { color:'#1e2335' }
+            }
+          }
+        }
+      });
+    } else {
+      // Line chart — multi hari
+      const dates = [...new Set(jenisData.map(d => d.tanggal))].sort();
+      const items  = sorted.map(([k]) => k);
+      const isMobile = window.innerWidth < 640;
+
+      const datasets = items.map((item, i) => ({
+        label: item,
+        data: dates.map(dt => {
+          const f = jenisData.find(d => d.tanggal === dt && d.item === item);
+          return f ? f.qty : 0;
+        }),
+        borderColor: colors[i%colors.length],
+        backgroundColor: colors[i%colors.length]+'22',
+        pointBackgroundColor: colors[i%colors.length],
+        borderWidth: 2,
+        pointRadius: isMobile ? 3 : 4,
+        tension: 0.35,
+        fill: false,
+      }));
+
+      const ctx = document.getElementById(chartId).getContext('2d');
+      chartInstances[chartId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: dates.map(d => new Date(d+'T00:00:00').toLocaleDateString('id-ID',{day:'2-digit',month:'short'})),
+          datasets,
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          aspectRatio: isMobile ? 1.3 : 1.8,
+          interaction: { mode:'index', intersect: false },
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: {
+                color:'#9aa0bc',
+                font:{ size: isMobile?9:10, family:'DM Sans' },
+                boxWidth: 8, padding: isMobile ? 6 : 10,
+                usePointStyle: true,
+              }
+            },
+            tooltip: {
+              backgroundColor:'#1e2335', titleColor:'#e8eaf0',
+              bodyColor:'#9aa0bc', borderColor:'#2a3050', borderWidth:1,
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color:'#6b7394', font:{ size: isMobile?9:10 }, maxRotation: isMobile?45:0 },
+              grid: { color:'#1e2335' }
+            },
+            y: {
+              ticks: { color:'#6b7394', font:{ size: isMobile?9:10 } },
+              grid: { color:'#1e2335' }, beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+  });
+}
+
+function switchTab(cardId, tab) {
+  const card = document.getElementById(cardId);
+  card.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0&&tab==='chart')||(i===1&&tab==='table')));
+  card.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.getElementById(`${cardId}-${tab}`).classList.add('active');
+}
+
+document.getElementById('searchItem').addEventListener('input', renderDashboard);
+document.getElementById('filterJenis').addEventListener('change', renderDashboard);
+
+// Re-render on resize (portrait ↔ landscape)
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(renderDashboard, 300);
+});
+</script>
+</body>
+</html>
